@@ -1,0 +1,49 @@
+# azure-pipelines/ci-pipeline.yml
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+      - staging
+      - dev
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.11'
+    displayName: Set Python version
+
+  - script: pip install -r requirements.txt
+    displayName: Install dependencies
+
+  - script: flake8 src/ --max-line-length=120
+    displayName: Lint
+
+  - script: pytest src/tests/ -v --cov=src --cov-report=xml
+    displayName: Unit tests
+
+  - task: TerraformInstaller@1
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: Terraform Init
+    inputs:
+      command: init
+      workingDirectory: infrastructure/terraform/environments/dev
+      backendServiceArm: 'azure-service-connection'
+      backendAzureRmResourceGroupName: 'rg-terraform-state'
+      backendAzureRmStorageAccountName: 'stdbricsanaltrfrm'
+      backendAzureRmContainerName: 'tfstate'
+      backendAzureRmKey: 'dev.terraform.tfstate'
+
+  - task: TerraformTaskV4@4
+    displayName: Terraform Plan
+    inputs:
+      command: plan
+      workingDirectory: infrastructure/terraform/environments/dev
+      environmentServiceNameAzureRM: 'azure-service-connection'
