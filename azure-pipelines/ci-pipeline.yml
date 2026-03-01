@@ -9,7 +9,7 @@ pr:
       - dev
 
 pool:
-  vmImage: ubuntu-latest
+  name: default
 
 steps:
   - task: UsePythonVersion@0
