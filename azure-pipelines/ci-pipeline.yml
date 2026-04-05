@@ -12,19 +12,28 @@ pool:
   name: laptop-pool
 
 steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.11'
-    displayName: Set Python version
+  - script: | 
+      python --version
+      python -m pip install --upgrade pip
+    displayName: 'Verify and Upgrade Pip'
+    
+  - script: | 
+      python -m venv venv
+    # Use the Windows-specific path to activate
+      call venv\Scripts\activate
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+    displayName: 'Install dependencies in Venv'
 
-  - script: pip install -r requirements.txt
-    displayName: Install dependencies
+  - script: | 
+      call venv\Scripts\activate
+      flake8 src/ --max-line-length=120
+    displayName: 'Lint'
 
-  - script: flake8 src/ --max-line-length=120
-    displayName: Lint
-
-  - script: pytest src/tests/ -v --cov=src --cov-report=xml
-    displayName: Unit tests
+  - script: |
+      call venv\Scripts\activate
+      pytest src/tests/ -v --cov=src --cov-report=xml
+    displayName: 'Unit tests'
 
   - task: TerraformInstaller@1
     inputs:
