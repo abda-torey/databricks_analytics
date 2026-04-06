@@ -11,27 +11,32 @@ pr:
 pool:
   name: laptop-pool
 
+variables:
+  PYTHON_EXE: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\'
+
 steps:
-  - script: | 
-      python --version
-      python -m pip install --upgrade pip
-    displayName: 'Verify and Upgrade Pip'
-    
-  - script: | 
-      python -m venv venv
-      call venv\Scripts\activate
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
+  - script: |
+      $(PYTHON_EXE) --version
+      $(PYTHON_EXE) -m pip install --upgrade pip
+    displayName: 'Verify Global Python'
+
+  - script: |
+      $(PYTHON_EXE) -m venv venv
+      venv\Scripts\python.exe -m pip install --upgrade pip
+      venv\Scripts\pip.exe install -r requirements.txt
     displayName: 'Install dependencies in Venv'
 
-  - script: | 
-      call venv\Scripts\activate
-      flake8 src/ --max-line-length=120
+  - script: |
+      if exist venv\Scripts\flake8.exe (
+        venv\Scripts\flake8.exe src/ --max-line-length=120
+      ) else (
+        echo flake8 not found in venv
+        exit 1
+      )
     displayName: 'Lint'
 
   - script: |
-      call venv\Scripts\activate
-      pytest src/tests/ -v --cov=src --cov-report=xml
+      venv\Scripts\pytest.exe src/tests/ -v --cov=src --cov-report=xml
     displayName: 'Unit tests'
 
   - task: TerraformInstaller@1
