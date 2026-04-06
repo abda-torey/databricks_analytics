@@ -12,7 +12,7 @@ pool:
   name: laptop-pool
 
 variables:
-  PYTHON_EXE: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\'
+  PYTHON_EXE: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
 
 steps:
   - script: |
