@@ -36,7 +36,8 @@ steps:
     displayName: 'Lint'
 
   - script: |
-      venv\Scripts\pytest.exe src/tests/ -v --cov=src --cov-report=xml || echo "No tests found, moving on..."
+      venv\Scripts\pytest.exe src/tests/ -v --cov=src --cov-report=xml
+      if %errorlevel% equ 5 exit 0
     displayName: 'Unit tests'
 
   - task: TerraformInstaller@1
