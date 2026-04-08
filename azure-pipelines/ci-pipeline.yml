@@ -12,7 +12,10 @@ pool:
   name: laptop-pool
 
 variables:
-  PYTHON_EXE: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
+  - group: databricks-analytics-dev-secrets  # The library group
+  - name: PYTHON_EXE                         # Your local path
+    value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
+
 
 steps:
   - script: |
@@ -61,3 +64,11 @@ steps:
       command: plan
       workingDirectory: infrastructure/terraform/environments/dev
       environmentServiceNameAzureRM: 'azure-service-connection'
+    env:
+      TF_VAR_tenant_id: $(AZURE_TENANT_ID)
+      TF_VAR_subscription_id: $(AZURE_SUBSCRIPTION_ID)
+
+
+
+
+
