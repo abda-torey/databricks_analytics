@@ -17,18 +17,25 @@ variables:
     value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
 
 
+
 steps:
-  - script: |
-      $(PYTHON_EXE) --version
-      $(PYTHON_EXE) -m pip install --upgrade pip
-    displayName: 'Verify Global Python'
+
+  - task: Cache@2
+    inputs:
+      key: 'python | "$(Agent.OS)" | requirements.txt'
+      restoreKeys: |
+        python | "$(Agent.OS)"
+      path: venv
+    cacheHitVar: CACHE_RESTORED
+    displayName: 'Check for cached Virtualenv'
 
   - script: |
-      $(PYTHON_EXE) -m venv venv
+      "$(PYTHON_EXE)" -m venv venv
       venv\Scripts\python.exe -m pip install --upgrade pip
       venv\Scripts\pip.exe install -r requirements.txt
-    displayName: 'Install dependencies in Venv'
-
+    displayName: 'Install dependencies (Cache Miss)'
+    condition: ne(variables.CACHE_RESTORED, 'true')
+  
   - script: |
       if exist venv\Scripts\flake8.exe (
         venv\Scripts\flake8.exe src/ --max-line-length=120
