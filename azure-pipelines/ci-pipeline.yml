@@ -17,28 +17,32 @@ variables:
     value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
 
 steps:
-  # 1. SMART LOCAL SYNC (Replaces Cache@2 to avoid timeouts)
+  
   - script: |
-      if not exist venv (
-        echo "Venv missing. Creating..."
-        "$(PYTHON_EXE)" -m venv venv
-        venv\Scripts\python.exe -m pip install --upgrade pip
+      # 1. Create the parent folder if it doesn't exist
+      if not exist C:\azure_devops_venvs mkdir C:\azure_devops_venvs
+      
+      SET CENTRAL_VENV=C:\azure_devops_venvs\databricks_project_venv
+
+      if not exist %CENTRAL_VENV% (
+        echo "Central Venv missing. Creating..."
+        "$(PYTHON_EXE)" -m venv %CENTRAL_VENV%
+        %CENTRAL_VENV%\Scripts\python.exe -m pip install --upgrade pip
       )
-      echo "Syncing requirements..."
-      venv\Scripts\pip.exe install -r requirements.txt
-    displayName: 'Fast Local Dependency Sync'
+      
+      %CENTRAL_VENV%\Scripts\pip.exe install -r requirements.txt
+      
+      # This line makes 'flake8' and 'pytest' available globally for the rest of the job
+      echo ##vso[task.prependpath]%CENTRAL_VENV%\Scripts
+    displayName: 'Global Local Dependency Sync'
 
   - script: |
-      if exist venv\Scripts\flake8.exe (
-        venv\Scripts\flake8.exe src/ --max-line-length=120
-      ) else (
-        echo flake8 not found in venv
-        exit 1
-      )
+      flake8 src/ --max-line-length=120
     displayName: 'Lint'
 
   - script: |
-      venv\Scripts\pytest.exe src/tests/ -v --cov=src --cov-report=xml
+      # NO MORE venv\Scripts\ prefix here!
+      pytest src/tests/ -v --cov=src --cov-report=xml
       if %errorlevel% equ 5 exit 0
     displayName: 'Unit tests'
 
