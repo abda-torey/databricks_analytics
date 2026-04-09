@@ -1,41 +1,33 @@
-# azure-pipelines/ci-pipeline.yml
-trigger: none
+trigger:
+  branches:
+    include:
+      - dev
 
 pr:
   branches:
     include:
-      - main
-      - staging
       - dev
 
 pool:
   name: laptop-pool
 
 variables:
-  - group: databricks-analytics-dev-secrets  # The library group
-  - name: PYTHON_EXE                         # Your local path
+  - group: databricks-analytics-dev-secrets
+  - name: PYTHON_EXE
     value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
 
-
-
 steps:
-
-  - task: Cache@2
-    inputs:
-      key: 'python | "$(Agent.OS)" | requirements.txt'
-      restoreKeys: |
-        python | "$(Agent.OS)"
-      path: venv
-      cacheHitVar: CACHE_RESTORED
-    displayName: 'Check for cached Virtualenv'
-
+  # 1. SMART LOCAL SYNC (Replaces Cache@2 to avoid timeouts)
   - script: |
-      "$(PYTHON_EXE)" -m venv venv
-      venv\Scripts\python.exe -m pip install --upgrade pip
+      if not exist venv (
+        echo "Venv missing. Creating..."
+        "$(PYTHON_EXE)" -m venv venv
+        venv\Scripts\python.exe -m pip install --upgrade pip
+      )
+      echo "Syncing requirements..."
       venv\Scripts\pip.exe install -r requirements.txt
-    displayName: 'Install dependencies (Cache Miss)'
-    condition: ne(variables.CACHE_RESTORED, 'true')
-  
+    displayName: 'Fast Local Dependency Sync'
+
   - script: |
       if exist venv\Scripts\flake8.exe (
         venv\Scripts\flake8.exe src/ --max-line-length=120
@@ -75,7 +67,14 @@ steps:
       TF_VAR_tenant_id: $(AZURE_TENANT_ID)
       TF_VAR_subscription_id: $(AZURE_SUBSCRIPTION_ID)
 
-
-
-
-
+  # 2. AUTOMATED APPLY (Only runs on merges to 'dev')
+  - task: TerraformTaskV4@4
+    displayName: Terraform Apply
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+    inputs:
+      command: apply
+      workingDirectory: infrastructure/terraform/environments/dev
+      environmentServiceNameAzureRM: 'azure-service-connection'
+    env:
+      TF_VAR_tenant_id: $(AZURE_TENANT_ID)
+      TF_VAR_subscription_id: $(AZURE_SUBSCRIPTION_ID)
