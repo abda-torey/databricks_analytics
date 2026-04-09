@@ -15,23 +15,25 @@ variables:
   - group: databricks-analytics-dev-secrets
   - name: PYTHON_EXE
     value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
+  # Define the path here so every step knows where it is
+  - name: CENTRAL_VENV
+    value: 'C:\azure_devops_venvs\databricks_project_venv'
 
 steps:
   
   - script: |
       if not exist C:\azure_devops_venvs mkdir C:\azure_devops_venvs
       
-      SET CENTRAL_VENV=C:\azure_devops_venvs\databricks_project_venv
-
-      if not exist %CENTRAL_VENV% (
-        echo "Central Venv missing. Creating..."
-        "$(PYTHON_EXE)" -m venv %CENTRAL_VENV%
-        %CENTRAL_VENV%\Scripts\python.exe -m pip install --upgrade pip
+      if not exist $(CENTRAL_VENV) (
+        echo "Creating Virtual Environment..."
+        "$(PYTHON_EXE)" -m venv $(CENTRAL_VENV)
+        $(CENTRAL_VENV)\Scripts\python.exe -m pip install --upgrade pip
       )
       
-      %CENTRAL_VENV%\Scripts\pip.exe install -r requirements.txt
+      echo "Syncing libraries..."
+      $(CENTRAL_VENV)\Scripts\pip.exe install -r requirements.txt
       
-      echo ##vso[task.prependpath]%CENTRAL_VENV%\Scripts
+      echo ##vso[task.prependpath]$(CENTRAL_VENV)\Scripts
     displayName: 'Global Local Dependency Sync'
 
   - script: |
