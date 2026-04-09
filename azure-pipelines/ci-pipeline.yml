@@ -26,7 +26,7 @@ steps:
       restoreKeys: |
         python | "$(Agent.OS)"
       path: venv
-    cacheHitVar: CACHE_RESTORED
+      cacheHitVar: CACHE_RESTORED
     displayName: 'Check for cached Virtualenv'
 
   - script: |
