@@ -1,0 +1,34 @@
+# azure-pipelines/cleanup-dev.yml
+trigger: none  # Never runs automatically
+
+pool:
+  name: laptop-pool
+
+variables:
+  - group: databricks-analytics-dev-secrets
+
+steps:
+  - task: TerraformInstaller@1
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: Terraform Init
+    inputs:
+      command: init
+      workingDirectory: infrastructure/terraform/environments/dev
+      backendServiceArm: 'azure-service-connection'
+      backendAzureRmResourceGroupName: 'rg-terraform-state'
+      backendAzureRmStorageAccountName: 'stdbricsanaltrfrm'
+      backendAzureRmContainerName: 'tfstate'
+      backendAzureRmKey: 'dev.terraform.tfstate'
+
+  - task: TerraformTaskV4@4
+    displayName: Terraform Destroy
+    inputs:
+      command: destroy
+      workingDirectory: infrastructure/terraform/environments/dev
+      environmentServiceNameAzureRM: 'azure-service-connection'
+    env:
+      TF_VAR_tenant_id: $(AZURE_TENANT_ID)
+      TF_VAR_subscription_id: $(AZURE_SUBSCRIPTION_ID)
