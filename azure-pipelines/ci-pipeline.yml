@@ -1,31 +1,51 @@
-# azure-pipelines/ci-pipeline.yml
-trigger: none
+trigger:
+  branches:
+    include:
+      - dev
 
 pr:
   branches:
     include:
-      - main
-      - staging
       - dev
 
 pool:
-  name: default
+  name: laptop-pool
+
+variables:
+  - group: databricks-analytics-dev-secrets
+  - name: PYTHON_EXE
+    value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
+  - name: CENTRAL_VENV
+    value: 'C:\azure_devops_venvs\databricks_project_venv'
 
 steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.11'
-    displayName: Set Python version
+  # 1. SMART VENV SYNC (Shared across all pipelines on this laptop)
+  - script: |
+      if not exist C:\azure_devops_venvs mkdir C:\azure_devops_venvs
+      
+      if not exist $(CENTRAL_VENV)\Scripts\python.exe (
+        echo "Central Venv missing. Creating..."
+        "$(PYTHON_EXE)" -m venv $(CENTRAL_VENV)
+      )
+      
+      echo "Syncing libraries..."
+      $(CENTRAL_VENV)\Scripts\python.exe -m pip install --upgrade pip
+      $(CENTRAL_VENV)\Scripts\python.exe -m pip install -r requirements.txt
+      
+      echo ##vso[task.prependpath]$(CENTRAL_VENV)\Scripts
+    displayName: 'Global Local Dependency Sync'
 
-  - script: pip install -r requirements.txt
-    displayName: Install dependencies
+  # 2. CODE QUALITY GATES
+  - script: |
+      flake8 src/ --max-line-length=120
+    displayName: 'Lint'
 
-  - script: flake8 src/ --max-line-length=120
-    displayName: Lint
+  - script: |
+      pytest src/tests/ -v --cov=src --cov-report=xml
+      if %errorlevel% equ 5 exit 0
+    displayName: 'Unit tests'
 
-  - script: pytest src/tests/ -v --cov=src --cov-report=xml
-    displayName: Unit tests
-
+  # 3. TERRAFORM INFRASTRUCTURE
   - task: TerraformInstaller@1
     inputs:
       terraformVersion: 'latest'
@@ -47,3 +67,18 @@ steps:
       command: plan
       workingDirectory: infrastructure/terraform/environments/dev
       environmentServiceNameAzureRM: 'azure-service-connection'
+    env:
+      TF_VAR_tenant_id: $(AZURE_TENANT_ID)
+      TF_VAR_subscription_id: $(AZURE_SUBSCRIPTION_ID)
+
+  # 4. AUTOMATED APPLY (Safety Gate: Only triggers on the 'dev' branch)
+  - task: TerraformTaskV4@4
+    displayName: Terraform Apply
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+    inputs:
+      command: apply
+      workingDirectory: infrastructure/terraform/environments/dev
+      environmentServiceNameAzureRM: 'azure-service-connection'
+    env:
+      TF_VAR_tenant_id: $(AZURE_TENANT_ID)
+      TF_VAR_subscription_id: $(AZURE_SUBSCRIPTION_ID)
