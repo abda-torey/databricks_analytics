@@ -1,6 +1,19 @@
 # 1. Look for an existing Metastore in this region
 data "databricks_metastores" "all" {}
 
+terraform {
+  required_providers {
+    databricks = {
+      source  = "databricks/databricks"
+      version = "~> 1.35"
+    }
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.85"
+    }
+  }
+}
+
 locals {
   # Logic: If a metastore exists in our region, use it. Otherwise, use the one we might create.
   # We filter the list of all metastores by the region we are deploying to.

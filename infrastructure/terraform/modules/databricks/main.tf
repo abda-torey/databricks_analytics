@@ -1,3 +1,17 @@
+
+terraform {
+  required_providers {
+    databricks = {
+      source  = "databricks/databricks"
+      version = "~> 1.35"
+    }
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.85"
+    }
+  }
+}
+
 resource "azurerm_databricks_workspace" "main" {
   name                = "dbw-databrksanlytc-${var.environment}"
   resource_group_name = var.resource_group_name
