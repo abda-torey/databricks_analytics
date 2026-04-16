@@ -1,55 +1,121 @@
-# 1. Look for an existing Metastore in this region
-data "databricks_metastores" "all" {}
-
 terraform {
   required_providers {
-    databricks = {
-      source  = "databricks/databricks"
-      version = "~> 1.35"
-    }
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.85"
     }
+    databricks = {
+      source                = "databricks/databricks"
+      version               = "~> 1.35"
+      configuration_aliases = [databricks.accounts, databricks.workspace]
+    }
   }
 }
 
-locals {
-  # Logic: If a metastore exists in our region, use it. Otherwise, use the one we might create.
-  # We filter the list of all metastores by the region we are deploying to.
-  existing_metastore_id = lookup({ for m in data.databricks_metastores.all.ids : m => m if contains(split("/", m), var.location) }, var.location, null)
-  
-  # Use the existing ID if found, otherwise use the new one created below
-  metastore_id = local.existing_metastore_id != null ? local.existing_metastore_id : databricks_metastore.main[0].id
-}
-
-# 2. Only create the Metastore if it DOESN'T exist (count = 0 or 1)
-resource "databricks_metastore" "main" {
-  count         = local.existing_metastore_id == null ? 1 : 0
-  name          = "ms-databrksanlytc-${var.environment}"
-  storage_root  = "abfss://unity-catalog@${var.storage_account_name}.dfs.core.windows.net/"
-  region        = var.location
-  force_destroy = true
-}
-
-# 3. Storage Credential (The Handshake)
-# This is unique to YOUR project's Access Connector, so we always create it
-resource "databricks_storage_credential" "external" {
-  name = "cred-databrksanlytc-${var.environment}"
-  azure_managed_identity {
-    access_connector_id = var.access_connector_id
-  }
-  metastore_id = local.metastore_id
-}
-
-# 4. Link the Workspace to the Metastore
-# This ensures YOUR workspace is added to the regional "Library"
-resource "databricks_metastore_assignment" "main" {
-  metastore_id = local.metastore_id
-  workspace_id = var.databricks_workspace_id
-}
+# ── IAM: Give the access connector permission to read/write ADLS ──────────────
 resource "azurerm_role_assignment" "unity_storage" {
   scope                = var.storage_account_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.principal_id
+}
+
+# ── Metastore (account-level) ─────────────────────────────────────────────────
+resource "databricks_metastore" "this" {
+  provider     = databricks.accounts
+  name         = "metastore-megaec-${var.environment}"
+  region       = var.location
+  storage_root = "abfss://unity-catalog@${var.storage_account_name}.dfs.core.windows.net/metastore"
+  force_destroy = true
+
+  depends_on = [azurerm_role_assignment.unity_storage]
+}
+
+# ── Metastore data access: link the connector to the metastore ────────────────
+resource "databricks_metastore_data_access" "this" {
+  provider     = databricks.accounts
+  metastore_id = databricks_metastore.this.id
+  name         = "megaec-${var.environment}-access"
+  is_default   = true
+
+  azure_managed_identity {
+    access_connector_id = var.access_connector_id
+  }
+}
+
+# ── Assign the metastore to the workspace ─────────────────────────────────────
+resource "databricks_metastore_assignment" "this" {
+  provider             = databricks.accounts
+  metastore_id         = databricks_metastore.this.id
+  workspace_id         = var.databricks_workspace_id
+  default_catalog_name = "${var.environment}_catalog"
+}
+
+# ── Storage credential (workspace-level) ─────────────────────────────────────
+resource "databricks_storage_credential" "this" {
+  provider = databricks.workspace
+  name     = "megaec-${var.environment}-credential"
+
+  azure_managed_identity {
+    access_connector_id = var.access_connector_id
+  }
+
+  comment    = "Managed identity credential for ${var.environment}"
+  depends_on = [databricks_metastore_assignment.this]
+}
+
+# ── External locations ────────────────────────────────────────────────────────
+resource "databricks_external_location" "bronze" {
+  provider        = databricks.workspace
+  name            = "bronze_location"
+  url             = "abfss://bronze@${var.storage_account_name}.dfs.core.windows.net/"
+  credential_name = databricks_storage_credential.this.name
+  comment         = "Raw ingestion layer"
+}
+
+resource "databricks_external_location" "silver" {
+  provider        = databricks.workspace
+  name            = "silver_location"
+  url             = "abfss://silver@${var.storage_account_name}.dfs.core.windows.net/"
+  credential_name = databricks_storage_credential.this.name
+  comment         = "Cleaned and enriched layer"
+}
+
+resource "databricks_external_location" "gold" {
+  provider        = databricks.workspace
+  name            = "gold_location"
+  url             = "abfss://gold@${var.storage_account_name}.dfs.core.windows.net/"
+  credential_name = databricks_storage_credential.this.name
+  comment         = "Business aggregates and KPIs"
+}
+
+# ── Catalog ───────────────────────────────────────────────────────────────────
+resource "databricks_catalog" "this" {
+  provider     = databricks.workspace
+  name         = "${var.environment}_catalog"
+  metastore_id = databricks_metastore.this.id
+  comment      = "Main catalog for ${var.environment} environment"
+
+  depends_on = [databricks_metastore_assignment.this]
+}
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+resource "databricks_schema" "bronze" {
+  provider     = databricks.workspace
+  catalog_name = databricks_catalog.this.name
+  name         = "bronze"
+  comment      = "Raw ingestion layer"
+}
+
+resource "databricks_schema" "silver" {
+  provider     = databricks.workspace
+  catalog_name = databricks_catalog.this.name
+  name         = "silver"
+  comment      = "Cleaned and enriched layer"
+}
+
+resource "databricks_schema" "gold" {
+  provider     = databricks.workspace
+  catalog_name = databricks_catalog.this.name
+  name         = "gold"
+  comment      = "Business aggregates and KPIs"
 }

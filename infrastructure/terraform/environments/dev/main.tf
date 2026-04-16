@@ -21,14 +21,27 @@ terraform {
 provider "azurerm" {
   features {
     resource_group {
-      # CRITICAL: Fixes the "RG not empty" error by forcing deletion of hidden resources
       prevent_deletion_if_contains_resources = false
     }
     key_vault {
-      # Ensures you don't get "Name already exists" errors on re-run
       purge_soft_delete_on_destroy = true
     }
   }
+}
+
+# Workspace-level Databricks provider
+# Uses Azure CLI login on your laptop automatically
+provider "databricks" {
+  alias = "workspace"
+  host  = module.databricks.workspace_url
+}
+
+# Account-level Databricks provider
+# Talks to accounts.azuredatabricks.net for metastore management
+provider "databricks" {
+  alias      = "accounts"
+  host       = "https://accounts.azuredatabricks.net"
+  account_id = var.databricks_account_id
 }
 
 resource "azurerm_resource_group" "main" {
@@ -36,11 +49,6 @@ resource "azurerm_resource_group" "main" {
   location = var.location
 }
 
-# This provider allows Terraform to "log in" to Databricks to set up Unity Catalog
-provider "databricks" {
-  host = module.databricks.workspace_url
-  # The agent on your laptop will use your Azure CLI login to authenticate
-}
 module "keyvault" {
   source              = "../../modules/keyvault"
   resource_group_name = azurerm_resource_group.main.name
@@ -76,11 +84,16 @@ module "unity_catalog" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
   environment         = var.environment
-  
-  # Dependencies: Passes IDs from your other modules
+
   databricks_workspace_id = module.databricks.workspace_id
   storage_account_id      = module.storage.storage_account_id
   storage_account_name    = module.storage.storage_account_name
   access_connector_id     = module.databricks.access_connector_id
   principal_id            = module.databricks.principal_id
+
+  # Pass provider aliases into the module
+  providers = {
+    databricks.accounts  = databricks.accounts
+    databricks.workspace = databricks.workspace
+  }
 }
