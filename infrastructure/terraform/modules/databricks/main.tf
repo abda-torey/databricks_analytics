@@ -1,35 +1,27 @@
+resource "azurerm_databricks_workspace" "main" {
+  name                = "dbw-megaec-${var.environment}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  sku                 = "premium"
 
-terraform {
-  required_providers {
-    databricks = {
-      source  = "databricks/databricks"
-      version = "~> 1.35"
-    }
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.85"
-    }
+  tags = {
+    environment = var.environment
+    project     = "mega-ecommerce"
   }
 }
 
-resource "azurerm_databricks_workspace" "main" {
-  name                = "dbw-databrksanlytc-${var.environment}"
+# Access connector lives here — unity_catalog module consumes it
+resource "azurerm_databricks_access_connector" "unity" {
+  name                = "ac-megaec-${var.environment}"
   resource_group_name = var.resource_group_name
   location            = var.location
-  sku                 = "premium" # Required for Unity Catalog
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = {
+    environment = var.environment
+    project     = "mega-ecommerce"
+  }
 }
-
-# The "Passport" for Databricks to talk to Azure Storage
-resource "azurerm_databricks_access_connector" "main" {
-  name                = "ac-databricksanlytc-${var.environment}"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  identity { type = "SystemAssigned" }
-}
-
-output "access_connector_id" { value = azurerm_databricks_access_connector.main.id }
-output "principal_id"        { value = azurerm_databricks_access_connector.main.identity[0].principal_id }
-
-output "workspace_url" { value = azurerm_databricks_workspace.main.workspace_url }
-output "workspace_id"  { value = azurerm_databricks_workspace.main.workspace_id }
-output "resource_id"   { value = azurerm_databricks_workspace.main.id }
