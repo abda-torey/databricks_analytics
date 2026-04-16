@@ -22,3 +22,6 @@ variable "databricks_account_id" {
   description = "Databricks Account ID — found at accounts.azuredatabricks.net top-right corner"
   type        = string
 }
+variable "pipeline_sp_object_id" {
+  description = "Object ID of the pipeline SP"
+}

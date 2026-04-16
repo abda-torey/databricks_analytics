@@ -55,6 +55,7 @@ module "keyvault" {
   location            = var.location
   environment         = var.environment
   tenant_id           = var.tenant_id
+  pipeline_sp_object_id = var.pipeline_sp_object_id
 }
 
 module "storage" {

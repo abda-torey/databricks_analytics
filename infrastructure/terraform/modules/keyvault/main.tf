@@ -12,10 +12,22 @@ resource "azurerm_key_vault" "main" {
   access_policy {
     tenant_id = var.tenant_id
     object_id = data.azurerm_client_config.current.object_id
-    secret_permissions = ["Get","List","Set","Delete","Purge"]
+
+    secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
   }
 
-  tags = { environment = var.environment, project = "databricks-analytics" }
+  # SP running the pipeline also needs access
+  access_policy {
+    tenant_id = var.tenant_id
+    object_id = var.pipeline_sp_object_id
+
+    secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
+  }
+
+  tags = {
+    environment = var.environment
+    project     = "databricks-analytics"
+  }
 }
 
 output "keyvault_id"  { value = azurerm_key_vault.main.id }
