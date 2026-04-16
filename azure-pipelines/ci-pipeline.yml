@@ -61,7 +61,7 @@ jobs:
         inputs:
           command: init
           workingDirectory: infrastructure/terraform/environments/dev
-          backendServiceArm: 'azure-service-connection'
+          backendServiceArm: 'azure-service-connection-secret'
           backendAzureRmResourceGroupName: 'rg-terraform-state'
           backendAzureRmStorageAccountName: 'stdbricsanaltrfrm'
           backendAzureRmContainerName: 'tfstate'
@@ -72,7 +72,7 @@ jobs:
         inputs:
           command: plan
           workingDirectory: infrastructure/terraform/environments/dev
-          environmentServiceNameAzureRM: 'azure-service-connection'
+          environmentServiceNameAzureRM: 'azure-service-connection-secret'
         env:
           # AzureRM provider auth
           ARM_CLIENT_ID:       $(ARM_CLIENT_ID)
@@ -93,7 +93,7 @@ jobs:
         inputs:
           command: apply
           workingDirectory: infrastructure/terraform/environments/dev
-          environmentServiceNameAzureRM: 'azure-service-connection'
+          environmentServiceNameAzureRM: 'azure-service-connection-secret'
         env:
           # AzureRM provider auth
           ARM_CLIENT_ID:       $(ARM_CLIENT_ID)
