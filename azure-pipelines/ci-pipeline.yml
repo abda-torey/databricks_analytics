@@ -1,0 +1,110 @@
+trigger:
+  branches:
+    include:
+      - dev
+
+pr:
+  branches:
+    include:
+      - dev
+
+pool:
+  name: laptop-pool
+
+variables:
+  - group: databricks-analytics-dev-secrets
+  - name: PYTHON_EXE
+    value: 'C:\Users\Torey\AppData\Local\Programs\Python\Python314\python.exe'
+  - name: CENTRAL_VENV
+    value: 'C:\azure_devops_venvs\databricks_project_venv'
+
+jobs:
+  - job: CI
+    displayName: 'Lint, Test, Terraform'
+    timeoutInMinutes: 30
+
+    steps:
+      # ── 1. VENV SYNC ────────────────────────────────────────────────────────
+      - script: |
+          if not exist C:\azure_devops_venvs mkdir C:\azure_devops_venvs
+
+          if not exist $(CENTRAL_VENV)\Scripts\python.exe (
+            echo Central Venv missing. Creating...
+            "$(PYTHON_EXE)" -m venv $(CENTRAL_VENV)
+          )
+
+          echo Syncing libraries...
+          $(CENTRAL_VENV)\Scripts\python.exe -m pip install --upgrade pip
+          $(CENTRAL_VENV)\Scripts\python.exe -m pip install -r requirements.txt
+
+          echo ##vso[task.prependpath]$(CENTRAL_VENV)\Scripts
+        displayName: 'Setup: Sync Python venv'
+
+      # ── 2. CODE QUALITY ─────────────────────────────────────────────────────
+      - script: |
+          flake8 src/ --max-line-length=120
+        displayName: 'Lint: flake8'
+
+      - script: |
+          pytest src/tests/ -v --cov=src --cov-report=xml
+          if %errorlevel% equ 5 exit 0
+        displayName: 'Test: pytest unit tests'
+
+      # ── 3. TERRAFORM ─────────────────────────────────────────────────────────
+      - task: TerraformInstaller@1
+        displayName: 'Terraform: Install'
+        inputs:
+          terraformVersion: 'latest'
+
+      - task: TerraformTaskV4@4
+        displayName: 'Terraform: Init'
+        inputs:
+          command: init
+          workingDirectory: infrastructure/terraform/environments/dev
+          backendServiceArm: 'azure-service-connection-secret'
+          backendAzureRmResourceGroupName: 'rg-terraform-state'
+          backendAzureRmStorageAccountName: 'stdbricsanaltrfrm'
+          backendAzureRmContainerName: 'tfstate'
+          backendAzureRmKey: 'dev.terraform.tfstate'
+
+      - task: TerraformTaskV4@4
+        displayName: 'Terraform: Plan'
+        inputs:
+          command: plan
+          workingDirectory: infrastructure/terraform/environments/dev
+          environmentServiceNameAzureRM: 'azure-service-connection-secret'
+        env:
+          # AzureRM provider auth
+          ARM_CLIENT_ID:       $(ARM_CLIENT_ID)
+          ARM_CLIENT_SECRET:   $(ARM_CLIENT_SECRET)
+          ARM_TENANT_ID:       $(ARM_TENANT_ID)
+          ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+          # Terraform input variables (feeds var.* in your .tf files)
+          TF_VAR_tenant_id:                $(ARM_TENANT_ID)
+          TF_VAR_subscription_id:          $(ARM_SUBSCRIPTION_ID)
+          TF_VAR_azure_client_id:          $(ARM_CLIENT_ID)
+          TF_VAR_azure_client_secret:      $(ARM_CLIENT_SECRET)
+          TF_VAR_databricks_account_id:    $(DATABRICKS_ACCOUNT_ID)
+          TF_VAR_pipeline_sp_object_id: $(TF_VAR_pipeline_sp_object_id)
+
+      # Only runs on merge to dev, not on PRs
+      - task: TerraformTaskV4@4
+        displayName: 'Terraform: Apply'
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+        inputs:
+          command: apply
+          workingDirectory: infrastructure/terraform/environments/dev
+          environmentServiceNameAzureRM: 'azure-service-connection-secret'
+        env:
+          # AzureRM provider auth
+          ARM_CLIENT_ID:       $(ARM_CLIENT_ID)
+          ARM_CLIENT_SECRET:   $(ARM_CLIENT_SECRET)
+          ARM_TENANT_ID:       $(ARM_TENANT_ID)
+          ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+          # Terraform input variables
+          TF_VAR_tenant_id:                $(ARM_TENANT_ID)
+          TF_VAR_subscription_id:          $(ARM_SUBSCRIPTION_ID)
+          TF_VAR_azure_client_id:          $(ARM_CLIENT_ID)
+          TF_VAR_azure_client_secret:      $(ARM_CLIENT_SECRET)
+          TF_VAR_databricks_account_id:    $(DATABRICKS_ACCOUNT_ID)
+          TF_VAR_pipeline_sp_object_id: $(TF_VAR_pipeline_sp_object_id)
