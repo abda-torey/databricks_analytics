@@ -16,13 +16,7 @@ resource "azurerm_key_vault" "main" {
     secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
   }
 
-  # SP running the pipeline also needs access
-  access_policy {
-    tenant_id = var.tenant_id
-    object_id = var.pipeline_sp_object_id
-
-    secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
-  }
+ 
 
   tags = {
     environment = var.environment

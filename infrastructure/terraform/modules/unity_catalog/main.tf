@@ -22,9 +22,9 @@ resource "azurerm_role_assignment" "unity_storage" {
 # ── Metastore (account-level) ─────────────────────────────────────────────────
 resource "databricks_metastore" "this" {
   provider     = databricks.accounts
-  name         = "metastore-megaec-${var.environment}"
+  name         = "metastore-databricksanalytics"
   region       = var.location
-  storage_root = "abfss://unity-catalog@${var.storage_account_name}.dfs.core.windows.net/metastore"
+  storage_root = "abfss://unity-catalog@${var.storage_account_name}.dfs.core.windows.net/78ccfd63-6555-41d3-aba9-77055d6a9051"
   force_destroy = true
 
   depends_on = [azurerm_role_assignment.unity_storage]
