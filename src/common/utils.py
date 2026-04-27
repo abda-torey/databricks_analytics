@@ -122,5 +122,5 @@ def build_job_metadata(environment: str, job_name: str, layer: str) -> dict:
         "job_name":    job_name,
         "layer":       layer,
         "environment": environment,
-        "run_time":    datetime.datetime.utcnow().isoformat() + "Z",
+        "run_time":    datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
     }
