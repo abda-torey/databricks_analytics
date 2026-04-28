@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -37,6 +38,11 @@ from common.utils import (
 )
 
 print("Imports successful")
+
+# COMMAND ----------
+
+logger = get_logger("bronze.clickstream")
+print("Logger ready")
 
 # COMMAND ----------
 
@@ -78,25 +84,35 @@ print(f"Checkpoint path : {CHECKPOINT_PATH}")
 
 # COMMAND ----------
 
+# COMMAND ----------
+
+import json
+from pyspark.sql import functions as F
+from pyspark.sql.types import StringType
+
+# Retrieve Event Hub connection string from Databricks secret scope
 eh_conn_str = get_databricks_secret(
     dbutils,
-    cfg["secret_scope"],
+    cfg["secret_scope"],          # "megaec-secrets"
     "eventhub-consumer-connection-string"
 )
 
+# Build Event Hub configuration
+# No EventHubsUtils.encrypt needed on DBR 14.3 — pass string directly
 eh_conf = {
-    "eventhubs.connectionString": sc._jvm.org.apache.spark.eventhubs \
-        .EventHubsUtils.encrypt(eh_conn_str),
-    "eventhubs.consumerGroup": "$Default",
-    "eventhubs.startingPosition": json.dumps({
-        "offset": "-1",
-        "seqNo": -1,
+    "eventhubs.connectionString":  eh_conn_str,
+    "eventhubs.consumerGroup":     "$Default",
+    "eventhubs.startingPosition":  json.dumps({
+        "offset":       "-1",
+        "seqNo":        -1,
         "enqueuedTime": None,
-        "isInclusive": True
+        "isInclusive":  True
     }),
+    "maxEventsPerTrigger": "1000"
 }
 
 print("Event Hub config ready")
+print(f"Endpoint: {eh_conn_str.split(';')[0]}")
 
 # COMMAND ----------
 
