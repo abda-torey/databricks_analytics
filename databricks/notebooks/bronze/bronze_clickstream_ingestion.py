@@ -1,44 +1,110 @@
-# databricks/notebooks/bronze/bronze_clickstream_ingestion.py
 # Databricks notebook source
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Bronze — Clickstream Ingestion
+# MAGIC Reads raw events from Azure Event Hubs and writes to Delta table.
+# MAGIC
+# MAGIC **Layer:** Bronze (raw, no transformation)
+# MAGIC **Trigger:** 30 second micro-batch
+# MAGIC **Output:** `dev_catalog.bronze.clickstream_raw`
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 1: Imports
+
+# COMMAND ----------
 
 import sys
 import json
+
 sys.path.insert(0, "/Workspace/Repos/mega-ecommerce/src")
 
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType
-from common.utils import get_logger, get_env_config, get_storage_path, get_table_name, get_databricks_secret, build_job_metadata
+from common.utils import (
+    get_logger,
+    get_env_config,
+    get_storage_path,
+    get_table_name,
+    get_databricks_secret,
+    build_job_metadata,
+)
 
 logger = get_logger("bronze.clickstream")
+print("Imports successful")
 
-# ── Widget ────────────────────────────────────────────────────────────────────
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 2: Widget — Set Environment
+
+# COMMAND ----------
+
 dbutils.widgets.text("environment", "dev")
 env = dbutils.widgets.get("environment")
 
 cfg  = get_env_config(env)
 meta = build_job_metadata(env, "bronze_clickstream_ingestion", "bronze")
-logger.info(f"Starting bronze ingestion: {meta}")
 
-# ── Paths and table names ─────────────────────────────────────────────────────
+logger.info(f"Starting bronze ingestion: {meta}")
+print(f"Environment : {env}")
+print(f"Catalog     : {cfg['catalog']}")
+print(f"Storage     : {cfg['storage_account']}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 3: Paths and Table Names
+
+# COMMAND ----------
+
 BRONZE_TABLE    = get_table_name(env, "bronze", "clickstream_raw")
 BRONZE_PATH     = get_storage_path(env, "bronze", "clickstream")
 CHECKPOINT_PATH = get_storage_path(env, "bronze", "_checkpoints/clickstream")
 
-# ── Event Hub config ──────────────────────────────────────────────────────────
-eh_conn_str = get_databricks_secret(dbutils, cfg["secret_scope"], "eventhub-consumer-connection-string")
+print(f"Bronze table    : {BRONZE_TABLE}")
+print(f"Bronze path     : {BRONZE_PATH}")
+print(f"Checkpoint path : {CHECKPOINT_PATH}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 4: Event Hub Configuration
+
+# COMMAND ----------
+
+eh_conn_str = get_databricks_secret(
+    dbutils,
+    cfg["secret_scope"],
+    "eventhub-consumer-connection-string"
+)
 
 eh_conf = {
     "eventhubs.connectionString": sc._jvm.org.apache.spark.eventhubs \
         .EventHubsUtils.encrypt(eh_conn_str),
     "eventhubs.consumerGroup": "$Default",
     "eventhubs.startingPosition": json.dumps({
-        "offset": "-1", "seqNo": -1,
-        "enqueuedTime": None, "isInclusive": True
+        "offset": "-1",
+        "seqNo": -1,
+        "enqueuedTime": None,
+        "isInclusive": True
     }),
 }
 
-# ── Read from Event Hubs ──────────────────────────────────────────────────────
+print("Event Hub config ready")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 5: Read from Event Hubs (Streaming)
+
+# COMMAND ----------
+
 logger.info("Connecting to Event Hubs...")
+
 raw_stream = (
     spark.readStream
     .format("eventhubs")
@@ -46,7 +112,17 @@ raw_stream = (
     .load()
 )
 
-# ── Minimal transformation — bronze stays raw ─────────────────────────────────
+print("Stream reader created")
+print(f"Schema: {raw_stream.schema}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 6: Select and Rename Columns
+# MAGIC Bronze stays raw — no parsing, no cleaning. Just rename columns for clarity.
+
+# COMMAND ----------
+
 bronze_stream = (
     raw_stream.select(
         F.col("body").cast(StringType()).alias("raw_payload"),
@@ -60,8 +136,20 @@ bronze_stream = (
     )
 )
 
-# ── Write to Delta (bronze layer) ─────────────────────────────────────────────
+print("Bronze stream transformation defined")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 7: Write to Delta (Start Streaming Query)
+# MAGIC
+# MAGIC This cell starts the streaming query. It will run continuously.
+# MAGIC **Stop the stream** by clicking the stop button or interrupting the cluster.
+
+# COMMAND ----------
+
 logger.info(f"Writing to {BRONZE_TABLE}")
+
 query = (
     bronze_stream.writeStream
     .format("delta")
@@ -74,3 +162,18 @@ query = (
 
 logger.info("Bronze streaming query started")
 query.awaitTermination()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 8: Verification
+# MAGIC Run this cell **in a separate notebook** while the stream above is running.
+# MAGIC Do not run it in this notebook — it will not execute while awaitTermination() is blocking.
+
+# COMMAND ----------
+
+# Run this in a separate notebook to verify data is flowing:
+#
+# df = spark.read.table("dev_catalog.bronze.clickstream_raw")
+# print(f"Row count: {df.count()}")
+# df.show(5, truncate=False)
