@@ -18,24 +18,27 @@
 # MAGIC %md
 # MAGIC ## Cell 1: Imports
 
-# COMMAND ----------
+## COMMAND ----------
 
 import sys
+import os
 
-sys.path.insert(0, "/Workspace/Repos/mega-ecommerce/src")
+# Dynamic path — works regardless of GitHub username
+notebook_path = dbutils.notebook.entry_point.getDbutils() \
+    .notebook().getContext().notebookPath().get()
+repo_root = "/Workspace" + "/".join(notebook_path.split("/")[:4])
+src_path  = repo_root + "/src"
+sys.path.insert(0, src_path)
 
+print(f"Repo root : {repo_root}")
+print(f"src path  : {src_path}")
+
+# Now import from src/
 from common.utils import (
-    get_logger,
-    get_env_config,
-    get_table_name,
-    build_job_metadata,
-)
-from common.transformers import (
-    apply_gold_daily_kpis,
-    apply_gold_product_performance,
+    get_logger, get_env_config, get_storage_path,
+    get_table_name, get_databricks_secret, build_job_metadata,
 )
 
-logger = get_logger("gold.clickstream")
 print("Imports successful")
 
 # COMMAND ----------
