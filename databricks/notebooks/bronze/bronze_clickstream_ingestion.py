@@ -92,6 +92,8 @@ print(f"Checkpoint path : {CHECKPOINT_PATH}")
 # MAGIC %md
 # MAGIC ## Cell 5: Event Hub Configuration
 
+import json
+
 # COMMAND ----------
 
 eh_conn_str = get_databricks_secret(
