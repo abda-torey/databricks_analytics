@@ -16,9 +16,9 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 1: Imports
+# MAGIC ## Cell 1: Imports and Path Setup
 
-## COMMAND ----------
+# COMMAND ----------
 
 import sys
 import os
@@ -33,10 +33,16 @@ sys.path.insert(0, src_path)
 print(f"Repo root : {repo_root}")
 print(f"src path  : {src_path}")
 
-# Now import from src/
+from pyspark.sql import functions as F
 from common.utils import (
-    get_logger, get_env_config, get_storage_path,
-    get_table_name, get_databricks_secret, build_job_metadata,
+    get_logger,
+    get_env_config,
+    get_table_name,
+    build_job_metadata,
+)
+from common.transformers import (
+    apply_gold_daily_kpis,
+    apply_gold_product_performance,
 )
 
 print("Imports successful")
@@ -44,7 +50,17 @@ print("Imports successful")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 2: Widget — Set Environment
+# MAGIC ## Cell 2: Logger
+
+# COMMAND ----------
+
+logger = get_logger("gold.clickstream")
+print("Logger ready")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 3: Widget — Set Environment
 
 # COMMAND ----------
 
@@ -60,7 +76,7 @@ print(f"Run time    : {meta['run_time']}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 3: Table Names
+# MAGIC ## Cell 4: Table Names
 
 # COMMAND ----------
 
@@ -75,7 +91,7 @@ print(f"Writing to   : {GOLD_PRODUCT}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 4: Read Silver (Batch)
+# MAGIC ## Cell 5: Read Silver (Batch)
 # MAGIC Gold runs as a batch job on a schedule — not streaming.
 
 # COMMAND ----------
@@ -90,7 +106,7 @@ print(f"Silver columns   : {silver_df.columns}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 5: Apply Daily KPI Aggregation
+# MAGIC ## Cell 6: Apply Daily KPI Aggregation
 # MAGIC Aggregation logic delegated to `apply_gold_daily_kpis()` from `src/common/transformers.py`.
 
 # COMMAND ----------
@@ -103,7 +119,7 @@ daily_kpis.show(5, truncate=False)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 6: Apply Product Performance Aggregation
+# MAGIC ## Cell 7: Apply Product Performance Aggregation
 
 # COMMAND ----------
 
@@ -115,7 +131,7 @@ product_perf.show(5, truncate=False)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 7: Write Daily KPIs to Gold
+# MAGIC ## Cell 8: Write Daily KPIs to Gold
 
 # COMMAND ----------
 
@@ -134,7 +150,7 @@ print(f"Daily KPIs written to {GOLD_DAILY}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 8: Write Product Performance to Gold
+# MAGIC ## Cell 9: Write Product Performance to Gold
 
 # COMMAND ----------
 
@@ -154,7 +170,7 @@ logger.info("Gold tables updated successfully")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 9: Verification — Preview Gold Tables
+# MAGIC ## Cell 10: Verification — Preview Gold Tables
 
 # COMMAND ----------
 
@@ -167,11 +183,9 @@ spark.read.table(GOLD_PRODUCT).show(10, truncate=False)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 10: Summary Statistics
+# MAGIC ## Cell 11: Summary Statistics
 
 # COMMAND ----------
-
-from pyspark.sql import functions as F
 
 daily = spark.read.table(GOLD_DAILY)
 product = spark.read.table(GOLD_PRODUCT)
