@@ -1,6 +1,5 @@
 # Databricks notebook source
 
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -14,12 +13,13 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 1: Imports
+# MAGIC ## Cell 1: Imports and Path Setup
 
 # COMMAND ----------
 
 import sys
 import os
+import json
 
 # Dynamic path — works regardless of GitHub username
 notebook_path = dbutils.notebook.entry_point.getDbutils() \
@@ -31,13 +31,23 @@ sys.path.insert(0, src_path)
 print(f"Repo root : {repo_root}")
 print(f"src path  : {src_path}")
 
-# Now import from src/
+from pyspark.sql import functions as F
+from pyspark.sql.types import StringType
 from common.utils import (
-    get_logger, get_env_config, get_storage_path,
-    get_table_name, get_databricks_secret, build_job_metadata,
+    get_logger,
+    get_env_config,
+    get_storage_path,
+    get_table_name,
+    get_databricks_secret,
+    build_job_metadata,
 )
 
 print("Imports successful")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cell 2: Logger
 
 # COMMAND ----------
 
@@ -47,7 +57,7 @@ print("Logger ready")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 2: Widget — Set Environment
+# MAGIC ## Cell 3: Widget — Set Environment
 
 # COMMAND ----------
 
@@ -65,7 +75,7 @@ print(f"Storage     : {cfg['storage_account']}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 3: Paths and Table Names
+# MAGIC ## Cell 4: Paths and Table Names
 
 # COMMAND ----------
 
@@ -80,13 +90,7 @@ print(f"Checkpoint path : {CHECKPOINT_PATH}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 4: Event Hub Configuration
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
+# MAGIC ## Cell 5: Event Hub Configuration
 
 # COMMAND ----------
 
@@ -96,8 +100,9 @@ eh_conn_str = get_databricks_secret(
     "eventhub-consumer-connection-string"
 )
 
-# Encrypt the connection string properly for the Event Hubs connector
-encrypted_conn_str = sc._jvm.org.apache.spark.eventhubs.EventHubsUtils.encrypt(eh_conn_str)
+# Encrypt the connection string — always required by the Event Hubs Spark connector
+encrypted_conn_str = sc._jvm.org.apache.spark.eventhubs \
+    .EventHubsUtils.encrypt(eh_conn_str)
 
 eh_conf = {
     "eventhubs.connectionString":  encrypted_conn_str,
@@ -116,7 +121,7 @@ print(f"Endpoint: {eh_conn_str.split(';')[0]}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 5: Read from Event Hubs (Streaming)
+# MAGIC ## Cell 6: Read from Event Hubs (Streaming)
 
 # COMMAND ----------
 
@@ -135,7 +140,7 @@ print(f"Schema: {raw_stream.schema}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 6: Select and Rename Columns
+# MAGIC ## Cell 7: Select and Rename Columns
 # MAGIC Bronze stays raw — no parsing, no cleaning. Just rename columns for clarity.
 
 # COMMAND ----------
@@ -158,7 +163,7 @@ print("Bronze stream transformation defined")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 7: Write to Delta (Start Streaming Query)
+# MAGIC ## Cell 8: Write to Delta (Start Streaming Query)
 # MAGIC
 # MAGIC This cell starts the streaming query. It will run continuously.
 # MAGIC **Stop the stream** by clicking the stop button or interrupting the cluster.
@@ -183,7 +188,7 @@ query.awaitTermination()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 8: Verification
+# MAGIC ## Cell 9: Verification
 # MAGIC Run this cell **in a separate notebook** while the stream above is running.
 # MAGIC Do not run it in this notebook — it will not execute while awaitTermination() is blocking.
 
