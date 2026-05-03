@@ -37,3 +37,8 @@ variable "principal_id" {
   description = "The Managed Identity Principal ID of the Access Connector for IAM role assignment"
   type        = string
 }
+variable "workspace_admin_email" {
+  description = "Email of personal account that needs catalog and external location access"
+  type        = string
+  default     = "databricks@abda5685hotmail.onmicrosoft.com"
+}

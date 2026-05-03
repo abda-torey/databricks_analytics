@@ -21,10 +21,10 @@ resource "azurerm_role_assignment" "unity_storage" {
 
 # ── Metastore (account-level) ─────────────────────────────────────────────────
 resource "databricks_metastore" "this" {
-  provider     = databricks.accounts
-  name         = "metastore-databricksanalytics"
-  region       = var.location
-  storage_root = "abfss://unity-catalog@${var.storage_account_name}.dfs.core.windows.net/78ccfd63-6555-41d3-aba9-77055d6a9051"
+  provider      = databricks.accounts
+  name          = "metastore-databricksanalytics"
+  region        = var.location
+  storage_root  = "abfss://unity-catalog@${var.storage_account_name}.dfs.core.windows.net/78ccfd63-6555-41d3-aba9-77055d6a9051"
   force_destroy = true
 
   depends_on = [azurerm_role_assignment.unity_storage]
@@ -50,7 +50,7 @@ resource "databricks_metastore_assignment" "this" {
   default_catalog_name = "${var.environment}_catalog"
 }
 
-# ── Storage credential (workspace-level) ─────────────────────────────────────
+# ── Storage credential (workspace-level) ──────────────────────────────────────
 resource "databricks_storage_credential" "this" {
   provider = databricks.workspace
   name     = "megaec-${var.environment}-credential"
@@ -88,46 +88,80 @@ resource "databricks_external_location" "gold" {
   comment         = "Business aggregates and KPIs"
 }
 
+# ── External location grants ──────────────────────────────────────────────────
+resource "databricks_grants" "bronze_location" {
+  provider          = databricks.workspace
+  external_location = databricks_external_location.bronze.name
+
+  grant {
+    principal  = var.workspace_admin_email
+    privileges = ["READ_FILES", "WRITE_FILES"]
+  }
+}
+
+resource "databricks_grants" "silver_location" {
+  provider          = databricks.workspace
+  external_location = databricks_external_location.silver.name
+
+  grant {
+    principal  = var.workspace_admin_email
+    privileges = ["READ_FILES", "WRITE_FILES"]
+  }
+}
+
+resource "databricks_grants" "gold_location" {
+  provider          = databricks.workspace
+  external_location = databricks_external_location.gold.name
+
+  grant {
+    principal  = var.workspace_admin_email
+    privileges = ["READ_FILES", "WRITE_FILES"]
+  }
+}
+
 # ── Catalog ───────────────────────────────────────────────────────────────────
 resource "databricks_catalog" "this" {
   provider     = databricks.workspace
   name         = "${var.environment}_catalog"
   metastore_id = databricks_metastore.this.id
   comment      = "Main catalog for ${var.environment} environment"
+  force_destroy = true
 
   depends_on = [databricks_metastore_assignment.this]
 }
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 resource "databricks_schema" "bronze" {
-  provider     = databricks.workspace
-  catalog_name = databricks_catalog.this.name
-  name         = "bronze"
-  comment      = "Raw ingestion layer"
+  provider      = databricks.workspace
+  catalog_name  = databricks_catalog.this.name
+  name          = "bronze"
+  comment       = "Raw ingestion layer"
+  force_destroy = true
 }
 
 resource "databricks_schema" "silver" {
-  provider     = databricks.workspace
-  catalog_name = databricks_catalog.this.name
-  name         = "silver"
-  comment      = "Cleaned and enriched layer"
+  provider      = databricks.workspace
+  catalog_name  = databricks_catalog.this.name
+  name          = "silver"
+  comment       = "Cleaned and enriched layer"
+  force_destroy = true
 }
 
 resource "databricks_schema" "gold" {
-  provider     = databricks.workspace
-  catalog_name = databricks_catalog.this.name
-  name         = "gold"
-  comment      = "Business aggregates and KPIs"
-
-
+  provider      = databricks.workspace
+  catalog_name  = databricks_catalog.this.name
+  name          = "gold"
+  comment       = "Business aggregates and KPIs"
+  force_destroy = true
 }
 
+# ── Catalog grants ────────────────────────────────────────────────────────────
 resource "databricks_grants" "catalog" {
   provider = databricks.workspace
   catalog  = databricks_catalog.this.name
 
   grant {
-    principal  = "databricks@abda5685hotmail.com"
+    principal  = var.workspace_admin_email
     privileges = ["ALL_PRIVILEGES"]
   }
 
