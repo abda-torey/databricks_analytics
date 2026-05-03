@@ -118,4 +118,18 @@ resource "databricks_schema" "gold" {
   catalog_name = databricks_catalog.this.name
   name         = "gold"
   comment      = "Business aggregates and KPIs"
+
+
+}
+
+resource "databricks_grants" "catalog" {
+  provider = databricks.workspace
+  catalog  = databricks_catalog.this.name
+
+  grant {
+    principal  = "databricks@abda5685hotmail.com"
+    privileges = ["ALL_PRIVILEGES"]
+  }
+
+  depends_on = [databricks_catalog.this]
 }
