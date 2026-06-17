@@ -21,3 +21,10 @@ output "principal_id" {
   description = "Managed identity principal ID for IAM role assignments"
   value       = azurerm_databricks_access_connector.unity.identity[0].principal_id
 }
+
+output "dbt_sql_warehouse_id" {
+  value = databricks_sql_endpoint.dbt_compute.id
+}
+output "dbt_sql_warehouse_jdbc" {
+  value = databricks_sql_endpoint.dbt_compute.jdbc_url
+}

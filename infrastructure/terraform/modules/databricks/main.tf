@@ -25,3 +25,17 @@ resource "azurerm_databricks_access_connector" "unity" {
     project     = "mega-ecommerce"
   }
 }
+
+resource "databricks_sql_endpoint" "dbt_compute" {
+  name             = "dbt-sql-warehouse-${var.environment}"
+  cluster_size     = "2X-Small"
+  max_num_clusters = 1
+  auto_stop_mins   = 10
+  enable_serverless_compute = true # Serverless is best for dbt
+  tags {
+    custom_tags {
+      key   = "used_by"
+      value = "dbt_cloud"
+    }
+  }
+}
