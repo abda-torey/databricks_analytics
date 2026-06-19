@@ -56,6 +56,8 @@ module "keyvault" {
   environment         = var.environment
   tenant_id           = var.tenant_id
   pipeline_sp_object_id = var.pipeline_sp_object_id
+  dbt_token_value        = module.databricks.dbt_token_value
+  
 }
 
 module "storage" {
@@ -78,6 +80,12 @@ module "databricks" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
   environment         = var.environment
+  dbt_sp_application_id = module.keyvault.dbt_sp_client_id
+  
+  providers = {
+    databricks.workspace = databricks.workspace
+    databricks.accounts  = databricks.accounts
+  }
 }
 
 module "unity_catalog" {

@@ -28,3 +28,27 @@ output "dbt_sql_warehouse_id" {
 output "dbt_sql_warehouse_jdbc" {
   value = databricks_sql_endpoint.dbt_compute.jdbc_url
 }
+
+output "sql_warehouse_hostname" {
+  value       = databricks_sql_endpoint.dbt_compute.odbc_params[0].hostname
+  description = "The SQL Warehouse Hostname for dbt connection"
+}
+
+output "sql_warehouse_http_path" {
+  value       = databricks_sql_endpoint.dbt_compute.odbc_params[0].path
+  description = "The SQL Warehouse HTTP path for dbt connection"
+}
+
+
+
+# NEW: Exposed outputs matching your root module assignments
+output "dbt_sp_application_id" {
+  value       = databricks_service_principal.dbt_account_sp.application_id
+  description = "The application ID for the registered dbt Service Principal"
+}
+
+output "dbt_token_value" {
+  value       = databricks_token.dbt_sp_token.token_value
+  sensitive   = true # Prevents the token string from printing in plain text to terminal logs
+  description = "The raw secret token generated for the dbt service principal"
+}

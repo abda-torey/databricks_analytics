@@ -1,3 +1,19 @@
+
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.85"
+    }
+    databricks = {
+      source  = "databricks/databricks"
+      version = "~> 1.35"
+      configuration_aliases = [ databricks.workspace,databricks.accounts ]
+    }
+  }
+}
+
+
 resource "azurerm_databricks_workspace" "main" {
   name                = "dbw-megaec-${var.environment}"
   resource_group_name = var.resource_group_name
@@ -27,6 +43,7 @@ resource "azurerm_databricks_access_connector" "unity" {
 }
 
 resource "databricks_sql_endpoint" "dbt_compute" {
+  provider = databricks.workspace
   name             = "dbt-sql-warehouse-${var.environment}"
   cluster_size     = "2X-Small"
   max_num_clusters = 1
