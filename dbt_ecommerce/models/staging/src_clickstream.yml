@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: bronze_clickstream
+    database: dev_catalog
+    schema: bronze
+    tables:
+      - name: raw_web_events
+        description: "Raw events pushed from the Event Hub clickstream streaming cluster"

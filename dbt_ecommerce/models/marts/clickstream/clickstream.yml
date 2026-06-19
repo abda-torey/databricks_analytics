@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_clickstream__events
+    description: "Staged application logs coming from the clickstream script."
+    columns:
+      - name: event_id
+        tests:
+          - unique
+          - not_null
+      - name: event_type
+        tests:
+          - accepted_values:
+              values: ["page_view", "product_view", "add_to_cart", "remove_from_cart", "checkout_start", "purchase", "search"]
+
+  - name: fct_clickstream_sessions
+    description: "Aggregated user sessions built using python-passed session tags."
+    columns:
+      - name: session_id
+        tests:
+          - unique
+          - not_null
+      - name: total_session_revenue
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: session_duration_seconds
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"

@@ -22,4 +22,4 @@ venv/
 # dbt specific
 dbt_ecommerce/target/
 dbt_ecommerce/dbt_packages/
-dbt_ecommerce/logs/
+dbt_ecommerce/logs/logs/
